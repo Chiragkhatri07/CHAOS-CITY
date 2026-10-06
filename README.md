@@ -25,7 +25,8 @@ Chaos City is a browser based multiplayer party strategy game for 2–8 friends.
 
 - **Client:** React, Vite, and plain responsive CSS. Socket.IO carries server snapshots and player requests.
 - **Server:** Node.js, Express, and Socket.IO. `server/game.js` owns the game rules and scoring; `server/index.js` owns rooms, sockets, cleanup, rate limits, and phase transitions.
-- **State:** In memory on one Node process. There is no database or account data. Rooms are removed after 30 minutes when abandoned or after results.
+- **Local state:** In memory on one Node process for simple local development. There is no player account data.
+- **Vercel state:** Room state and room locks are stored in Redis with a TTL. Socket.IO uses its Redis adapter to broadcast between Function instances. This is required because a reconnect or a new player's WebSocket can reach a different instance.
 - **Trust boundary:** Clients send only action names and small inputs. The server validates phase, energy, ownership, balance, trade consent, and event choices, then broadcasts a tailored public state. Hidden role details are sent only to that player.
 
 ## Local development
@@ -46,8 +47,9 @@ The Vite client runs at `http://localhost:5173`; the game server runs at `http:/
 | --- | --- | --- |
 | `PORT` | No | HTTP and Socket.IO port (default `3001`; hosting services normally set this). |
 | `CLIENT_ORIGIN` | No | Comma separated allowed browser origins when the client is hosted separately. Leave unset when the Node server also serves `dist` on the same origin. |
+| `REDIS_URL` | Vercel only | Redis TCP connection string used by Vercel Functions for shared room storage and Socket.IO pub/sub. Use the TLS `rediss://` URL from the Upstash Vercel integration. Do not use the REST URL/token pair. |
 
-Never commit `.env` or production secrets. The current server does not need secrets.
+Never commit `.env` or production secrets. Local development can run without Redis.
 
 ## Build and tests
 
@@ -61,17 +63,19 @@ The Node test suite covers room creation and name validation, lobby start requir
 
 ## Deployment
 
-`render.yaml` describes a single Node web service that builds the frontend and serves it from the game server. Connect this repository to Render, create the web service from the Blueprint, and use its generated HTTPS hostname. A single always-on Node instance is required because rooms currently live in process memory. Do not scale to multiple instances without adding shared room state and a Socket.IO adapter. Set `CLIENT_ORIGIN` only if the UI is moved to a different origin.
+Vercel is the production target. Import this GitHub repository into Vercel, add an Upstash Redis database through the Vercel Marketplace, and attach its `REDIS_URL` TCP connection string to the project for Production and Preview. Redeploy after the variable is available. `vercel.json` builds the static Vite client and configures the Socket.IO function at `/api/socket-io`; the production client uses WebSocket transport at `/api/socket-io/socket.io`. The Socket.IO Redis adapter and Redis-backed room locks keep clients synchronized across function instances. Connections can close at the function duration limit, so the client reconnects with its room resume token.
+
+The Vercel deployment requires a Redis database integration. Without `REDIS_URL`, the production Socket.IO endpoint refuses connections rather than running unsynchronized per-instance rooms. `/api/health` reports whether that required configuration is present. `render.yaml` remains as a single-process alternative for a Node host.
 
 For a manual Node host, use `npm install`, `npm run build`, then `npm start`; route HTTPS and WebSocket traffic to the same process and retain one instance. `PORT` is read from the host environment.
 
 ## Limitations and next steps
 
-- Rooms and matches are lost when the server restarts; there is no persistence or cross-instance adapter.
+- Local rooms are lost when the Node server restarts. Vercel rooms persist in Redis until their 30 minute TTL expires.
 - Reconnection is available while the room remains in memory. There is no long term account recovery.
 - Mini games are represented by a quick server resolved challenge rather than a separate animated reaction/memory interface.
 - Mobile layouts are implemented in CSS; this checkout does not include browser automation or physical device lab access.
-- The deployment descriptor is ready, but a public launch still requires an authorized hosting account and repository connection.
+- Production WebSockets on Vercel are in public beta and connections are subject to Function duration limits; the client reconnects automatically.
 
 ## Project layout
 
@@ -80,5 +84,8 @@ src/                React UI and responsive styles
 server/game.js      Room state, game rules, economy, events, scoring
 server/index.js     HTTP server, Socket.IO protocol, reconnection, cleanup
 server/game.test.js Authoritative game logic tests
-render.yaml         Single service deployment blueprint
+api/socket-io.js    Vercel Socket.IO WebSocket function
+server/room-store.js Redis-backed shared room store with local memory mode
+vercel.json         Vercel build and function configuration
+render.yaml         Single-service alternative deployment blueprint
 ```
