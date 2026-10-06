@@ -58,7 +58,7 @@ function App() {
   useEffect(() => { sessionRef.current = session; }, [session]);
   useEffect(() => {
     const socket = io({
-      path: import.meta.env.PROD ? '/api/socket-io/socket.io' : '/socket.io',
+      path: import.meta.env.PROD ? '/api/socket-io' : '/socket.io',
       transports: import.meta.env.PROD ? ['websocket'] : ['websocket', 'polling'],
       autoConnect: true,
       reconnection: true,

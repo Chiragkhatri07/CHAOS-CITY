@@ -63,7 +63,7 @@ The Node test suite covers room creation and name validation, lobby start requir
 
 ## Deployment
 
-Vercel is the production target. Import this GitHub repository into Vercel, add an Upstash Redis database through the Vercel Marketplace, and attach its `REDIS_URL` TCP connection string to the project for Production and Preview. Redeploy after the variable is available. `vercel.json` builds the static Vite client and configures the Socket.IO function at `/api/socket-io`; the production client uses WebSocket transport at `/api/socket-io/socket.io`. The Socket.IO Redis adapter and Redis-backed room locks keep clients synchronized across function instances. Connections can close at the function duration limit, so the client reconnects with its room resume token.
+Vercel is the production target. Import this GitHub repository into Vercel, add a Redis database through the Vercel Marketplace, and attach its `REDIS_URL` TCP connection string to the project for Production and Preview. Redeploy after the variable is available. `vercel.json` builds the static Vite client and configures the Socket.IO function at `/api/socket-io`; the production client uses WebSocket transport at that same function route. The Socket.IO Redis adapter and Redis-backed room locks keep clients synchronized across function instances. Connections can close at the function duration limit, so the client reconnects with its room resume token.
 
 The Vercel deployment requires a Redis database integration. Without `REDIS_URL`, the production Socket.IO endpoint refuses connections rather than running unsynchronized per-instance rooms. `/api/health` reports whether that required configuration is present. `render.yaml` remains as a single-process alternative for a Node host.
 

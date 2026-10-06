@@ -16,7 +16,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
-  path: process.env.VERCEL ? '/api/socket-io/socket.io' : '/socket.io',
+  path: process.env.VERCEL ? '/api/socket-io' : '/socket.io',
   cors: CLIENT_ORIGIN ? { origin: CLIENT_ORIGIN.split(',').map(x => x.trim()), methods: ['GET', 'POST'] } : false,
   maxHttpBufferSize: 1e5,
   pingInterval: 25000,
